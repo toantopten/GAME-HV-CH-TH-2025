@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>P-C-T Challenge – Không trùng hạng</title>
+<style>
+    body{font-family:"Segoe UI",Arial;background:linear-gradient(135deg,#2193b0,#6dd5ed);color:#fff;margin:0;padding:0;display:flex;flex-direction:column;align-items:center;min-height:100vh}
+    header{background:rgba(0,0,0,.2);width:100%;padding:15px 0;font-size:2em;font-weight:bold;text-align:center}
+    #timerWrap{margin:20px 0;font-size:3em;color:#ffeb3b}
+    #questionBox{background:#fff;color:#333;width:90%;max-width:700px;padding:25px;border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,.2);font-size:1.3em;text-align:center;margin-bottom:15px}
+    .btnGroup button{margin:8px;padding:12px 25px;font-size:1.2em;border:none;border-radius:8px;cursor:pointer;transition:.3s}
+    .btnGroup button:hover{opacity:.8}
+    .P{background:#ff9800;color:#fff}
+    .A{background:#4caf50;color:#fff}
+    .C{background:#3f51b5;color:#fff}
+    #answerWrap{margin-top:20px}
+    #answerWrap input{padding:10px;font-size:1.2em;width:120px;text-align:center;border:none;border-radius:8px}
+    #answerWrap button{padding:10px 20px;margin-left:10px;font-size:1.2em;border:none;border-radius:8px;background:#e91e63;color:#fff;cursor:pointer}
+    #scoreBoard{display:flex;justify-content:center;gap:30px;margin-top:25px;font-size:1.4em}
+    .team{display:flex;flex-direction:column;align-items:center}
+    .score{font-size:1.6em;font-weight:bold;color:#ffeb3b}
+    #nextBtn,#rankBtn{margin-top:25px;padding:10px 30px;background:#009688;color:#fff;font-size:1.3em;border:none;border-radius:8px;cursor:pointer}
+    #solution{background:#fff;color:#333;width:90%;max-width:700px;margin-top:20px;border-radius:12px;padding:20px;display:none;font-size:1.15em;line-height:1.6}
+    #rankArea{background:#fff;color:#333;width:90%;max-width:400px;margin-top:20px;border-radius:12px;padding:20px;display:none;text-align:center}
+</style>
+</head>
+<body>
+
+<header>P-C-T Challenge – Không trùng hạng</header>
+<div id="timerWrap">60</div>
+<div id="questionBox"></div>
+
+<div class="btnGroup">
+  <button class="P" onclick="choose('P')">P – Hoán vị</button>
+  <button class="A" onclick="choose('A')">A – Chỉnh hợp</button>
+  <button class="C" onclick="choose('C')">C – Tổ hợp</button>
+</div>
+
+<div id="answerWrap">
+    Kết quả số: <input type="number" id="res" placeholder="?" min="0">
+    <button onclick="submitAns()">Gửi</button>
+</div>
+
+<div id="scoreBoard">
+    <div class="team"><span>Đội A</span><div class="score" id="scoreA">0</div></div>
+    <div class="team"><span>Đội B</span><div class="score" id="scoreB">0</div></div>
+    <div class="team"><span>Đội C</span><div class="score" id="scoreC">0</div></div>
+    <div class="team"><span>Đội D</span><div class="score" id="scoreD">0</div></div>
+</div>
+
+<button id="nextBtn" onclick="nextQ()" style="display:none">Câu tiếp theo</button>
+<button id="rankBtn" onclick="showRank()" style="display:none">Xếp hạng</button>
+
+<!-- Lời giải -->
+<div id="solution"></div>
+<!-- Bảng xếp hạng -->
+<div id="rankArea"></div>
+
+<script>
+const questions = [
+  {q:"Câu 1 (Nhận biết): Có bao nhiêu cách xếp 4 bạn An, Bình, Chi, Dũng ngồi vào 4 chiếc ghế đánh số từ 1 đến 4?", ans:24, type:"P", sol:"4! = 24."},
+  {q:"Câu 2 (Nhận biết): Một lớp có 40 học sinh. Cần chọn 1 lớp trưởng và 1 lớp phó (hai vị trí phân biệt). Có bao nhiêu cách?", ans:1560, type:"A", sol:"A²₄₀ = 1 560."},
+  {q:"Câu 3 (Nhận biết): Từ 5 học sinh nam, cần chọn ra 2 bạn tham gia đội cổ vũ (không phân cấp). Có bao nhiêu cách?", ans:10, type:"C", sol:"C²₅ = 10."},
+  {q:"Câu 4 (Thông hiểu): Một mật khẩu gồm 3 kí tự khác nhau được tạo từ các chữ cái A, B, C, D, E, F. Có bao nhiêu mật khẩu khác nhau?", ans:120, type:"A", sol:"A³₆ = 120."},
+  {q:"Câu 5 (Vận dụng thấp): Một đội bóng 11 cầu thủ. HLV muốn chọn ra 5 cầu thủ sút luân lưu và sắp thứ tự từ 1 đến 5. Có bao nhiêu cách lập danh sách?", ans:55440, type:"A", sol:"A⁵₁₁ = 55 440."},
+  {q:"Câu 6 (Vận dụng cao): Có 6 nam và 4 nữ. Cần lập một đội gồm 5 người có ít nhất 2 nam và ít nhất 1 nữ. Có bao nhiêu cách?", ans:240, type:"C", sol:"C⁵₁₀ – (C⁵₆ + C¹6·C⁴4) = 240."}
+];
+
+let currentQ = 0, timer = null, timeLeft = 60;
+let teamScores = {A:0,B:0,C:0,D:0};
+let teamTotalTime = {A:0,B:0,C:0,D:0};
+let teamPerfect = {A:0,B:0,C:0,D:0};   // số lần trả lời tuyệt đối đúng (10đ)
+let chosenType = null;
+
+function startTimer(){
+    timeLeft = 60;
+    document.getElementById('timerWrap').innerText = timeLeft;
+    timer = setInterval(()=>{
+        timeLeft--;
+        document.getElementById('timerWrap').innerText = timeLeft;
+        if(timeLeft <= 0){
+            clearInterval(timer);
+            showSolution();
+        }
+    },1000);
+}
+
+function choose(type){chosenType = type;}
+
+function submitAns(){
+    clearInterval(timer);
+    const res = parseInt(document.getElementById('res').value);
+    const correct = questions[currentQ].ans;
+    const correctType = questions[currentQ].type;
+
+    let team = prompt("Nhập đội vừa trả lời (A/B/C/D):").toUpperCase();
+    if(!teamScores.hasOwnProperty(team)) return;
+
+    let plus = 0;
+    if(chosenType === correctType) plus += 5;
+    if(res === correct) plus += 5;
+    teamScores[team] += plus;
+    teamTotalTime[team] += (60 - timeLeft);
+    if(plus === 10) teamPerfect[team]++;
+
+    document.getElementById('score'+team).innerText = teamScores[team];
+
+    alert(`Đội ${team} +${plus} điểm!`);
+    showSolution();
+}
+
+function showSolution(){
+    const solDiv = document.getElementById('solution');
+    solDiv.innerHTML = `<h3>Lời giải Câu ${currentQ+1}</h3><p>${questions[currentQ].sol}</p>`;
+    solDiv.style.display='block';
+    document.getElementById('nextBtn').style.display='inline-block';
+}
+
+function nextQ(){
+    document.getElementById('solution').style.display='none';
+    document.getElementById('nextBtn').style.display='none';
+    currentQ++;
+    if(currentQ < questions.length){
+        document.getElementById('questionBox').innerText = questions[currentQ].q;
+        document.getElementById('res').value='';
+        chosenType=null;
+        startTimer();
+    }else{
+        document.getElementById('questionBox').innerText="Trò chơi kết thúc!";
+        document.querySelector('.btnGroup').style.display='none';
+        document.getElementById('answerWrap').style.display='none';
+        document.getElementById('nextBtn').style.display='none';
+        document.getElementById('rankBtn').style.display='inline-block';
+    }
+}
+
+function showRank(){
+    /* Tiêu chí: 1-điểm, 2-thời gian, 3-số lần trả lời tuyệt đối, 4-bốc thăm */
+    const teams = ['A','B','C','D'];
+    // thêm chỉ số ngẫu nhiên để tránh bằng nhau tuyệt đối
+    teams.forEach(t => {
+        if(!teamPerfect[t]) teamPerfect[t]=0;
+        if(!teamTotalTime[t]) teamTotalTime[t]=0;
+    });
+
+    const sorted = teams
+        .map(t => ({
+            team: t,
+            score: teamScores[t],
+            time: teamTotalTime[t],
+            perfect: teamPerfect[t],
+            rand: Math.random()          // dùng nếu 3 tiêu chí trên bằng nhau
+        }))
+        .sort((a,b)=>{
+            if(b.score !== a.score) return b.score - a.score;
+            if(a.time !== b.time) return a.time - b.time;
+            if(b.perfect !== a.perfect) return b.perfect - a.perfect;
+            return a.rand - b.rand;
+        })
+        .map((o,i)=>`${i+1}. Đội ${o.team}: ${o.score} điểm – ${o.time}s – 🎯${o.perfect}`);
+
+    const rankDiv = document.getElementById('rankArea');
+    rankDiv.innerHTML = '<h2>Bảng xếp hạng chung cuộc</h2>' +
+                        '<div style="font-size:1.3em;line-height:2">' +
+                        sorted.join('<br>') +
+                        '</div>';
+    rankDiv.style.display='block';
+}
+
+/* Khởi chạy câu 1 */
+document.getElementById('questionBox').innerText = questions[0].q;
+startTimer();
+</script>
+</body>
+</html>
